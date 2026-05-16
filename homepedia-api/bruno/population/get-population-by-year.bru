@@ -1,0 +1,35 @@
+meta {
+  name: Get population - année 2023
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/population?year=2023
+  body: none
+  auth: none
+}
+
+params:query {
+  year: 2023
+}
+
+tests {
+  test("status 200", function() {
+    expect(res.status).to.equal(200);
+  });
+
+  test("retourne bien l'année 2023", function() {
+    expect(res.body.year).to.equal(2023);
+  });
+
+  test("contient 217 pays", function() {
+    expect(res.body.total).to.equal(217);
+  });
+
+  test("données triées par nom alphabétique", function() {
+    const names = res.body.data.map(r => r.name);
+    const sorted = [...names].sort((a, b) => a.localeCompare(b));
+    expect(names).to.deep.equal(sorted);
+  });
+}
