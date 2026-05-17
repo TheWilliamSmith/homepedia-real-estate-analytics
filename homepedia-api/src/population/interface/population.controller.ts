@@ -1,12 +1,12 @@
 import { Controller, Get, ParseIntPipe, Query } from '@nestjs/common';
-import { PopulationService } from './population.service.js';
+import { GetPopulationUseCase } from '../application/use-cases/get-population.use-case.js';
 
 @Controller('population')
 export class PopulationController {
-  constructor(private readonly populationService: PopulationService) {}
+  constructor(private readonly getPopulation: GetPopulationUseCase) {}
 
   @Get()
   findAll(@Query('year', new ParseIntPipe({ optional: true })) year?: number) {
-    return this.populationService.findAll(year);
+    return this.getPopulation.execute(year);
   }
 }
