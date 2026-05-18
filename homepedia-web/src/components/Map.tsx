@@ -1,62 +1,78 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
 import { MapContainer, TileLayer, GeoJSON } from "react-leaflet";
 import type { Layer, PathOptions, LeafletMouseEvent } from "leaflet";
 import type { Feature, GeoJsonObject } from "geojson";
-import { useDispatch, useSelector } from "react-redux";
-import type { AppDispatch, RootState } from "@/store";
-import { fetchPopulation } from "@/store/populationSlice";
 import {
-  buildQuantileScale,
+  QUANTILE_COLORS,
   formatPopulation,
   NO_DATA_COLOR,
+  type QuantileScale,
 } from "@/lib/colorScale";
+import type { FilterState } from "./MapFilters";
 import MapLegend from "./MapLegend";
 import "leaflet/dist/leaflet.css";
 
 const BORDER_COLOR = "#334155";
 
-export default function Map({ geoData }: { geoData: GeoJsonObject | null }) {
-  const dispatch = useDispatch<AppDispatch>();
-  const { data: populationData, status } = useSelector(
-    (state: RootState) => state.population,
-  );
+interface MapProps {
+  geoData: GeoJsonObject | null;
+  popByIso3: Record<string, number>;
+  scale: QuantileScale;
+  filter: FilterState;
+  popStatus: string;
+}
 
-  useEffect(() => {
-    if (status === "idle") dispatch(fetchPopulation());
-  }, [dispatch, status]);
+export default function Map({
+  geoData,
+  popByIso3,
+  scale,
+  filter,
+  popStatus,
+}: MapProps) {
+  function resolveIso3(props: Record<string, string>): string | undefined {
+    const iso = props?.ISO_A3;
+    return iso && iso !== "-99" ? iso : (props?.ADM0_A3 ?? undefined);
+  }
 
-  const popByIso3 = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const entry of populationData) {
-      map[entry.iso3] = entry.population;
-    }
-    return map;
-  }, [populationData]);
-
-  const scale = useMemo(
-    () => buildQuantileScale(Object.values(popByIso3)),
-    [popByIso3],
-  );
+  function isVisible(fillColor: string, classIdx: number): boolean {
+    if (fillColor === NO_DATA_COLOR) return filter.noData;
+    return classIdx >= 0 ? filter.classes[classIdx] : true;
+  }
 
   function getFeatureStyle(feature?: Feature): PathOptions {
-    const iso3 = (feature?.properties as Record<string, string>)?.ISO_A3;
+    const props = feature?.properties as Record<string, string>;
+    const iso3 = resolveIso3(props);
     const pop = iso3 ? popByIso3[iso3] : undefined;
     const fillColor = scale.getColor(pop);
+    const classIdx = QUANTILE_COLORS.indexOf(
+      fillColor as (typeof QUANTILE_COLORS)[number],
+    );
+    const visible = isVisible(fillColor, classIdx);
+
+    if (!visible) {
+      return {
+        color: BORDER_COLOR,
+        weight: 0.5,
+        opacity: 0.2,
+        fillColor: "#e5e7eb",
+        fillOpacity: 0.1,
+      };
+    }
+
     return {
       color: BORDER_COLOR,
       weight: 1,
       opacity: 0.7,
       fillColor,
-      fillOpacity: fillColor === NO_DATA_COLOR ? 0.15 : 0.45,
+      fillOpacity: fillColor === NO_DATA_COLOR ? 0.6 : 0.45,
     };
   }
 
   function onEachFeature(feature: Feature, layer: Layer) {
     const props = feature.properties as Record<string, string>;
     const name = props?.ADMIN ?? props?.NAME ?? "Unknown";
-    const iso3 = props?.ISO_A3;
+    const iso3 = resolveIso3(props);
     const pop = iso3 ? popByIso3[iso3] : undefined;
 
     const popLine =
@@ -73,7 +89,7 @@ export default function Map({ geoData }: { geoData: GeoJsonObject | null }) {
     const hoverStyle: Partial<PathOptions> = {
       weight: 2,
       opacity: 1,
-      fillOpacity: Math.min((defaultStyle.fillOpacity ?? 0.6) + 0.2, 0.9),
+      fillOpacity: Math.min((defaultStyle.fillOpacity ?? 0.45) + 0.2, 0.9),
     };
 
     layer.on({
@@ -86,6 +102,8 @@ export default function Map({ geoData }: { geoData: GeoJsonObject | null }) {
       },
     });
   }
+
+  const filterKey = `${filter.classes.join("")}-${filter.noData ? 1 : 0}`;
 
   return (
     <MapContainer
@@ -105,13 +123,13 @@ export default function Map({ geoData }: { geoData: GeoJsonObject | null }) {
       />
       {geoData && (
         <GeoJSON
-          key={status}
+          key={`${popStatus}-${filterKey}`}
           data={geoData}
           style={getFeatureStyle}
           onEachFeature={onEachFeature}
         />
       )}
-      {status === "succeeded" && <MapLegend scale={scale} />}
+      {popStatus === "succeeded" && <MapLegend scale={scale} />}
     </MapContainer>
   );
 }

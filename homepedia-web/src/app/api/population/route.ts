@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
-import data from "@/data/population.json";
+import { apiFetch } from "@/lib/apiClient";
 
 export async function GET() {
-  return NextResponse.json(data);
+  try {
+    const res = await apiFetch("/population");
+    const data = await res.json();
+    return NextResponse.json(data);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 502 });
+  }
 }

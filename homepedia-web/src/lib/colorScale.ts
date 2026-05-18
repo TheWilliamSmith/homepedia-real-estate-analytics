@@ -1,39 +1,34 @@
-/** Blues 5-class palette (ColorBrewer) — du plus clair au plus foncé */
 export const QUANTILE_COLORS = [
   "#c6dbef",
   "#9ecae1",
   "#6baed6",
   "#3182bd",
-  "#08519c",
+  "#08306b",
 ] as const;
 
 export const NO_DATA_COLOR = "#ef4444";
 
 export interface QuantileScale {
-  /** Valeurs de coupure entre chaque classe (4 seuils pour 5 classes) */
   breaks: number[];
   getColor: (population: number | undefined) => string;
 }
 
-/**
- * Construit une échelle quantile à 5 classes à partir d'une liste de populations.
- * Chaque classe contient ~20% des pays.
- */
 export function buildQuantileScale(populations: number[]): QuantileScale {
   if (populations.length === 0) {
     return { breaks: [], getColor: () => NO_DATA_COLOR };
   }
 
-  const sorted = [...populations].sort((a, b) => a - b);
+  const sorted = [...populations].filter((n) => n > 0).sort((a, b) => a - b);
   const n = sorted.length;
 
-  // 4 seuils pour 5 classes (quintiles)
-  const breaks = [1, 2, 3, 4].map((i) => sorted[Math.floor((i * n) / 5) - 1]);
+  const q1 = sorted[Math.floor(n * 0.2)] ?? 5_000_000;
+  const q2 = sorted[Math.floor(n * 0.4)] ?? 15_000_000;
+  const breaks = [q1, q2, 41_000_000, 100_000_000];
 
   const getColor = (population: number | undefined): string => {
-    if (population == null) return NO_DATA_COLOR;
+    if (population == null || population <= 0) return NO_DATA_COLOR;
     for (let i = 0; i < breaks.length; i++) {
-      if (population <= breaks[i]) return QUANTILE_COLORS[i];
+      if (population < breaks[i]) return QUANTILE_COLORS[i];
     }
     return QUANTILE_COLORS[4];
   };
@@ -41,7 +36,6 @@ export function buildQuantileScale(populations: number[]): QuantileScale {
   return { breaks, getColor };
 }
 
-/** Formate un nombre de population de façon lisible (ex: 68 000 000 → "68,0 M") */
 export function formatPopulation(population: number): string {
   if (population >= 1_000_000_000) {
     return `${(population / 1_000_000_000).toFixed(2)} Md`;
