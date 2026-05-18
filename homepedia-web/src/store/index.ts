@@ -1,9 +1,11 @@
 import { configureStore } from "@reduxjs/toolkit";
 import populationReducer from "./populationSlice";
+import gdpReducer from "./gdpSlice";
 
 export const store = configureStore({
   reducer: {
     population: populationReducer,
+    gdp: gdpReducer,
   },
 });
 

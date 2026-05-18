@@ -21,7 +21,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
-    "ingest:population": "tsx scripts/ingest-population.ts"
+    "ingest:population": "tsx scripts/ingest-population.ts",
+    "ingest:gdp": "tsx scripts/ingest-gdp.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

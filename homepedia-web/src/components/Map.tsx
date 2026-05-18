@@ -5,8 +5,11 @@ import type { Layer, PathOptions, LeafletMouseEvent } from "leaflet";
 import type { Feature, GeoJsonObject } from "geojson";
 import {
   QUANTILE_COLORS,
+  GDP_COLORS,
   formatPopulation,
+  formatGdpPerCapita,
   NO_DATA_COLOR,
+  getIncomeColor,
   type QuantileScale,
 } from "@/lib/colorScale";
 import type { FilterState } from "./MapFilters";
@@ -18,7 +21,10 @@ const BORDER_COLOR = "#334155";
 interface MapProps {
   geoData: GeoJsonObject | null;
   popByIso3: Record<string, number>;
+  incomeByIso3: Record<string, string>;
+  gdpByIso3: Record<string, number>;
   scale: QuantileScale;
+  gdpScale: QuantileScale;
   filter: FilterState;
   popStatus: string;
 }
@@ -26,7 +32,10 @@ interface MapProps {
 export default function Map({
   geoData,
   popByIso3,
+  incomeByIso3,
+  gdpByIso3,
   scale,
+  gdpScale,
   filter,
   popStatus,
 }: MapProps) {
@@ -43,6 +52,56 @@ export default function Map({
   function getFeatureStyle(feature?: Feature): PathOptions {
     const props = feature?.properties as Record<string, string>;
     const iso3 = resolveIso3(props);
+
+    if (filter.layer === "income") {
+      const level = iso3 ? incomeByIso3[iso3] : undefined;
+      const visible =
+        filter.incomeFilter === "all" || level === filter.incomeFilter;
+      if (!visible) {
+        return {
+          color: BORDER_COLOR,
+          weight: 0.5,
+          opacity: 0.2,
+          fillColor: "#e5e7eb",
+          fillOpacity: 0.1,
+        };
+      }
+      const fillColor = getIncomeColor(level);
+      return {
+        color: BORDER_COLOR,
+        weight: 1,
+        opacity: 0.7,
+        fillColor,
+        fillOpacity: fillColor === NO_DATA_COLOR ? 0.6 : 0.55,
+      };
+    }
+
+    if (filter.layer === "gdp") {
+      const gdp = iso3 ? gdpByIso3[iso3] : undefined;
+      const fillColor = gdpScale.getColor(gdp);
+      const classIdx = GDP_COLORS.indexOf(
+        fillColor as (typeof GDP_COLORS)[number],
+      );
+      const visible =
+        filter.gdpFilter === "all" || String(classIdx) === filter.gdpFilter;
+      if (!visible) {
+        return {
+          color: BORDER_COLOR,
+          weight: 0.5,
+          opacity: 0.2,
+          fillColor: "#e5e7eb",
+          fillOpacity: 0.1,
+        };
+      }
+      return {
+        color: BORDER_COLOR,
+        weight: 1,
+        opacity: 0.7,
+        fillColor,
+        fillOpacity: fillColor === NO_DATA_COLOR ? 0.6 : 0.55,
+      };
+    }
+
     const pop = iso3 ? popByIso3[iso3] : undefined;
     const fillColor = scale.getColor(pop);
     const classIdx = QUANTILE_COLORS.indexOf(
@@ -73,14 +132,28 @@ export default function Map({
     const props = feature.properties as Record<string, string>;
     const name = props?.ADMIN ?? props?.NAME ?? "Unknown";
     const iso3 = resolveIso3(props);
-    const pop = iso3 ? popByIso3[iso3] : undefined;
 
-    const popLine =
-      pop != null
-        ? `<span class="tooltip-pop">${formatPopulation(pop)} hab.</span>`
+    let infoLine: string;
+    if (filter.layer === "income") {
+      const level = iso3 ? incomeByIso3[iso3] : undefined;
+      infoLine = level
+        ? `<span class="tooltip-pop">${level}</span>`
         : `<span class="tooltip-nodata">Données indisponibles</span>`;
+    } else if (filter.layer === "gdp") {
+      const gdp = iso3 ? gdpByIso3[iso3] : undefined;
+      infoLine =
+        gdp != null
+          ? `<span class="tooltip-pop">${formatGdpPerCapita(gdp)} / hab.</span>`
+          : `<span class="tooltip-nodata">Données indisponibles</span>`;
+    } else {
+      const pop = iso3 ? popByIso3[iso3] : undefined;
+      infoLine =
+        pop != null
+          ? `<span class="tooltip-pop">${formatPopulation(pop)} hab.</span>`
+          : `<span class="tooltip-nodata">Données indisponibles</span>`;
+    }
 
-    layer.bindTooltip(`<span class="tooltip-name">${name}</span>${popLine}`, {
+    layer.bindTooltip(`<span class="tooltip-name">${name}</span>${infoLine}`, {
       sticky: true,
       className: "country-tooltip",
     });
@@ -103,7 +176,7 @@ export default function Map({
     });
   }
 
-  const filterKey = `${filter.classes.join("")}-${filter.noData ? 1 : 0}`;
+  const filterKey = `${filter.layer}-${filter.classes.join("")}-${filter.noData ? 1 : 0}-${filter.incomeFilter}-${filter.gdpFilter}`;
 
   return (
     <MapContainer
@@ -129,7 +202,9 @@ export default function Map({
           onEachFeature={onEachFeature}
         />
       )}
-      {popStatus === "succeeded" && <MapLegend scale={scale} />}
+      {popStatus === "succeeded" && (
+        <MapLegend scale={scale} gdpScale={gdpScale} layer={filter.layer} />
+      )}
     </MapContainer>
   );
 }

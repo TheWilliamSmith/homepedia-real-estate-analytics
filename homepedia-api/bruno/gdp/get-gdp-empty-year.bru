@@ -1,0 +1,33 @@
+meta {
+  name: Get GDP - année sans données (9999)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/gdp?year=9999
+  body: none
+  auth: none
+}
+
+params:query {
+  year: 9999
+}
+
+tests {
+  test("status 200", function() {
+    expect(res.status).to.equal(200);
+  });
+
+  test("year reflète le paramètre demandé", function() {
+    expect(res.body.year).to.equal(9999);
+  });
+
+  test("total est 0", function() {
+    expect(res.body.total).to.equal(0);
+  });
+
+  test("data est un tableau vide", function() {
+    expect(res.body.data).to.be.an("array").that.is.empty;
+  });
+}

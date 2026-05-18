@@ -1,0 +1,29 @@
+meta {
+  name: Get GDP - paramètre invalide (400)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/gdp?year=abc
+  body: none
+  auth: none
+}
+
+params:query {
+  year: abc
+}
+
+tests {
+  test("status 400", function() {
+    expect(res.status).to.equal(400);
+  });
+
+  test("message d'erreur de validation présent", function() {
+    expect(res.body.message).to.include("Validation failed");
+  });
+
+  test("statusCode dans le body est 400", function() {
+    expect(res.body.statusCode).to.equal(400);
+  });
+}
